@@ -3390,8 +3390,7 @@ async function onSalesLedgerYearChange() {
 }
 
 // ====== 대시보드 ======
-function renderDashboard() {
-  const ledger = DB.get('salesLedger') || [];
+async function renderDashboard() {
   const today = new Date().toISOString().slice(0,10);
   const thisMonth = today.slice(0,7);
   const thisYear  = today.slice(0,4);
@@ -3404,18 +3403,47 @@ function renderDashboard() {
   weekStart.setDate(nowDate.getDate() + diffToMon);
   const weekStartStr = weekStart.toISOString().slice(0,10);
 
-  const todayRows = ledger.filter(r => r.날짜 === today);
-  const weekRows  = ledger.filter(r => r.날짜 >= weekStartStr && r.날짜 <= today);
-  const monthRows = ledger.filter(r => r.날짜?.startsWith(thisMonth));
-  const yearRows  = ledger.filter(r => r.날짜?.startsWith(thisYear));
-  const failRows  = ledger.filter(r => r.매칭상태 === 'fail');
+  // Supabase에서 직접 집계 (localStorage 캐시 우선, 없으면 Supabase)
+  let tSupply=0, tTax=0, tTotal=0, todayCount=0;
+  let wSupply=0, wTax=0, wTotal=0, weekCount=0;
+  let mSupply=0, mTax=0, mTotal=0, monthCount=0;
+  let ySupply=0, yTax=0, yTotal=0, yearCount=0;
+  let failCount=0;
 
-  const sf = (arr, f) => arr.reduce((a,b) => a + (b[f]||0), 0);
+  try {
+    // 올해 데이터가 localStorage에 있으면 그걸 사용, 없으면 Supabase 조회
+    const localLedger = DB.get('salesLedger') || [];
+    const hasThisYear = localLedger.some(r => r.날짜?.startsWith(thisYear));
 
-  const tSupply = sf(todayRows,'공급가액'), tTax = sf(todayRows,'세액'), tTotal = sf(todayRows,'합계');
-  const wSupply = sf(weekRows, '공급가액'), wTax = sf(weekRows, '세액'), wTotal = sf(weekRows, '합계');
-  const mSupply = sf(monthRows,'공급가액'), mTax = sf(monthRows,'세액'), mTotal = sf(monthRows,'합계');
-  const ySupply = sf(yearRows, '공급가액'), yTax = sf(yearRows, '세액'), yTotal = sf(yearRows, '합계');
+    let yearData = [];
+    if (hasThisYear) {
+      yearData = localLedger.filter(r => r.날짜?.startsWith(thisYear));
+    } else {
+      const { data } = await _sb
+        .from('sales_ledger')
+        .select('sale_date,supply_amt,tax_amt,total_amt,match_status')
+        .gte('sale_date', thisYear + '-01-01')
+        .lte('sale_date', thisYear + '-12-31');
+      if (data) yearData = data.map(r => ({
+        날짜: r.sale_date, 공급가액: r.supply_amt||0,
+        세액: r.tax_amt||0, 합계: r.total_amt||0, 매칭상태: r.match_status
+      }));
+    }
+
+    const sf = (arr, f) => arr.reduce((a,b) => a + (b[f]||0), 0);
+    const todayRows = yearData.filter(r => r.날짜 === today);
+    const weekRows  = yearData.filter(r => r.날짜 >= weekStartStr && r.날짜 <= today);
+    const monthRows = yearData.filter(r => r.날짜?.startsWith(thisMonth));
+    const failRows  = yearData.filter(r => r.매칭상태 === 'fail');
+
+    tSupply=sf(todayRows,'공급가액'); tTax=sf(todayRows,'세액'); tTotal=sf(todayRows,'합계'); todayCount=todayRows.length;
+    wSupply=sf(weekRows,'공급가액');  wTax=sf(weekRows,'세액');  wTotal=sf(weekRows,'합계');  weekCount=weekRows.length;
+    mSupply=sf(monthRows,'공급가액'); mTax=sf(monthRows,'세액'); mTotal=sf(monthRows,'합계'); monthCount=monthRows.length;
+    ySupply=sf(yearData,'공급가액');  yTax=sf(yearData,'세액');  yTotal=sf(yearData,'합계');  yearCount=yearData.length;
+    failCount=failRows.length;
+  } catch(e) {
+    console.warn('대시보드 Supabase 조회 실패:', e);
+  }
 
   const breakdown = (supply, tax, total) => `
     <div style="display:flex;gap:0;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
@@ -3437,25 +3465,25 @@ function renderDashboard() {
     <div class="stat-card">
       <div class="stat-label">당일 매출합계</div>
       <div class="stat-value blue">${fmt(tTotal)}</div>
-      <div class="stat-sub">${today} · ${todayRows.length}건</div>
+      <div class="stat-sub">${today} · ${todayCount}건</div>
       ${breakdown(tSupply, tTax, tTotal)}
     </div>
     <div class="stat-card">
       <div class="stat-label">주간 매출합계</div>
       <div class="stat-value orange">${fmt(wTotal)}</div>
-      <div class="stat-sub">${weekStartStr} ~ ${today} · ${weekRows.length}건</div>
+      <div class="stat-sub">${weekStartStr} ~ ${today} · ${weekCount}건</div>
       ${breakdown(wSupply, wTax, wTotal)}
     </div>
     <div class="stat-card">
       <div class="stat-label">이번달 매출합계</div>
       <div class="stat-value green">${fmt(mTotal)}</div>
-      <div class="stat-sub">${thisMonth} · ${monthRows.length}건</div>
+      <div class="stat-sub">${thisMonth} · ${monthCount}건</div>
       ${breakdown(mSupply, mTax, mTotal)}
     </div>
     <div class="stat-card" style="grid-column: 1 / -1;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <div class="stat-label" style="margin:0">${thisYear}년 누적 매출</div>
-        <span style="font-size:10px;color:var(--text3)">총 ${yearRows.length}건</span>
+        <span style="font-size:10px;color:var(--text3)">총 ${yearCount}건</span>
       </div>
       <div style="display:flex;gap:0;align-items:stretch">
         <div style="flex:1;padding-right:20px">
@@ -3479,7 +3507,8 @@ function renderDashboard() {
   // ── ① 전월 대비 매출 증감 ──
   const prevMonthDate = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
   const prevMonth = prevMonthDate.toISOString().slice(0,7);
-  const prevMonthRows = ledger.filter(r => r.날짜?.startsWith(prevMonth));
+  const localLedgerForDash = DB.get('salesLedger') || [];
+  const prevMonthRows = localLedgerForDash.filter(r => r.날짜?.startsWith(prevMonth));
   const prevMTotal = sf(prevMonthRows,'합계');
   const prevMSupply = sf(prevMonthRows,'공급가액');
   // 전달 동기간(1일~오늘 일자까지만)
@@ -3514,7 +3543,8 @@ function renderDashboard() {
 
   // ── ③ 업체 거래 알림 ──
   // 이번달 거래 업체 목록
-  const thisMonthCos = new Set(monthRows.map(r => aggCompany(r.업체명)));
+  const thisMonthCosData = localLedgerForDash.filter(r => r.날짜?.startsWith(thisMonth));
+  const thisMonthCos = new Set(thisMonthCosData.map(r => aggCompany(r.업체명)));
   // 전달 거래했던 업체 중 이번달 거래 없는 업체
   const prevMonthCos = [...new Set(prevMonthRows.map(r => aggCompany(r.업체명)))].filter(Boolean);
   const noTradeCos = prevMonthCos.filter(c => !thisMonthCos.has(c));
@@ -3666,17 +3696,17 @@ function renderDashboard() {
   }
 
   // 미매칭
-  if (failRows.length === 0) {
+  if (failRowsDash.length === 0) {
     document.getElementById('dash-unmatched').innerHTML = '<div style="color:var(--success);font-size:13px">✅ 매칭 실패 항목 없음</div>';
   } else {
     document.getElementById('dash-unmatched').innerHTML = buildTable(
       ['날짜','업체명','모델명','수량','상태'],
-      failRows.slice(0,8).map(r => [r.날짜, r.업체명, r.모델명, r.수량,
+      failRowsDash.slice(0,8).map(r => [r.날짜, r.업체명, r.모델명, r.수량,
         '<span class="badge badge-fail">단가 없음</span>'])
     );
   }
 
-  document.getElementById('hdr-record-count').textContent = `DB ${ledger.length}건`;
+  document.getElementById('hdr-record-count').textContent = `DB ${(DB.get('salesLedger')||[]).length}건`;
 }
 
 // ====== 매출장 ======
@@ -5587,6 +5617,15 @@ async function confirmUpload() {
   await syncSbPosToLocal();
   tryAutoCompletePo(dateFilter || rowsToAdd[0]?.날짜 || '');
 
+  // 연도 목록 캐시 업데이트
+  const uploadedYear = (dateFilter || mergedRows[0]?.날짜 || '').slice(0, 4);
+  if (uploadedYear) {
+    const years = DB.get('salesLedgerYears') || [];
+    if (!years.includes(uploadedYear)) {
+      DB.set('salesLedgerYears', [...years, uploadedYear].sort().reverse());
+    }
+  }
+
   toast(`${mergedRows.length}건 매출장에 반영되었습니다.${rowsToAdd.length !== mergedRows.length ? ` (출고 ${rowsToAdd.length}건 → 모델 합산 후 ${mergedRows.length}건)` : ''}${dateFilter ? ' (' + dateFilter + ')' : ''}`, 'success');
   clearUpload();
   showPage('salesledger');
@@ -6994,12 +7033,23 @@ function importBackup(event) {
 }
 
 // ====== DB 초기화 ======
-function confirmReset() {
+async function confirmReset() {
   if (!confirm('⚠️ 매출장, 출고이력 등 모든 입력 데이터를 삭제합니다.\n단가 마스터는 유지됩니다.\n\n계속하시겠습니까?')) return;
+
+  // Supabase sales_ledger 전체 삭제 (admin이 직접 입력한 것만)
+  const { error } = await _sb.from('sales_ledger').delete().not('id', 'is', null);
+  if (error) console.warn('Supabase sales_ledger 초기화 실패:', error.message);
+
   DB.set('salesLedger', []);
+  DB.set('salesLedgerYears', []);
   DB.set('shipmentHistory', []);
   DB.set('legacyLedger', []);
   _ledgerIdCounter = 0;
+
+  // 연도 드롭다운 초기화
+  const yearSel = document.getElementById('sl-year');
+  if (yearSel) yearSel.innerHTML = '<option value="">전체 연도</option>';
+
   const cnt = document.getElementById('hdr-record-count');
   if (cnt) cnt.textContent = 'DB 0건';
   renderDashboard();
