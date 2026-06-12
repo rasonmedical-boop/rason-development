@@ -3392,6 +3392,8 @@ async function renderDashboard() {
   let mSupply=0, mTax=0, mTotal=0, monthCount=0;
   let ySupply=0, yTax=0, yTotal=0, yearCount=0;
   let failCount=0;
+  // 하단 섹션에서도 참조하는 변수
+  let todayRows=[], weekRows=[], monthRows=[], yearRows=[], failRowsDash=[];
 
   try {
     // 올해 데이터가 localStorage에 있으면 그걸 사용, 없으면 Supabase 조회
@@ -3414,16 +3416,17 @@ async function renderDashboard() {
     }
 
     const sf = (arr, f) => arr.reduce((a,b) => a + (b[f]||0), 0);
-    const todayRows = yearData.filter(r => r.날짜 === today);
-    const weekRows  = yearData.filter(r => r.날짜 >= weekStartStr && r.날짜 <= today);
-    const monthRows = yearData.filter(r => r.날짜?.startsWith(thisMonth));
-    const failRows  = yearData.filter(r => r.매칭상태 === 'fail');
+    todayRows    = yearData.filter(r => r.날짜 === today);
+    weekRows     = yearData.filter(r => r.날짜 >= weekStartStr && r.날짜 <= today);
+    monthRows    = yearData.filter(r => r.날짜?.startsWith(thisMonth));
+    yearRows     = yearData;
+    failRowsDash = yearData.filter(r => r.매칭상태 === 'fail');
 
     tSupply=sf(todayRows,'공급가액'); tTax=sf(todayRows,'세액'); tTotal=sf(todayRows,'합계'); todayCount=todayRows.length;
     wSupply=sf(weekRows,'공급가액');  wTax=sf(weekRows,'세액');  wTotal=sf(weekRows,'합계');  weekCount=weekRows.length;
     mSupply=sf(monthRows,'공급가액'); mTax=sf(monthRows,'세액'); mTotal=sf(monthRows,'합계'); monthCount=monthRows.length;
     ySupply=sf(yearData,'공급가액');  yTax=sf(yearData,'세액');  yTotal=sf(yearData,'합계');  yearCount=yearData.length;
-    failCount=failRows.length;
+    failCount=failRowsDash.length;
   } catch(e) {
     console.warn('대시보드 Supabase 조회 실패:', e);
   }
