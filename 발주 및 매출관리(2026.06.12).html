@@ -3394,6 +3394,7 @@ async function renderDashboard() {
   let failCount=0;
   // 하단 섹션에서도 참조하는 변수
   let todayRows=[], weekRows=[], monthRows=[], yearRows=[], failRowsDash=[];
+  const sf = (arr, f) => arr.reduce((a,b) => a + (b[f]||0), 0);
 
   try {
     // 올해 데이터가 localStorage에 있으면 그걸 사용, 없으면 Supabase 조회
@@ -3415,7 +3416,6 @@ async function renderDashboard() {
       }));
     }
 
-    const sf = (arr, f) => arr.reduce((a,b) => a + (b[f]||0), 0);
     todayRows    = yearData.filter(r => r.날짜 === today);
     weekRows     = yearData.filter(r => r.날짜 >= weekStartStr && r.날짜 <= today);
     monthRows    = yearData.filter(r => r.날짜?.startsWith(thisMonth));
@@ -3728,12 +3728,23 @@ async function renderSalesLedger() {
     const wrap = document.getElementById('sl-table');
     if (wrap) wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">로딩 중...</div>';
     try {
-      const { data: sbData } = await _sb
-        .from('sales_ledger')
-        .select('*')
-        .gte('sale_date', selectedYear + '-01-01')
-        .lte('sale_date', selectedYear + '-12-31')
-        .order('sale_date', { ascending: false });
+      // Supabase 1000건 limit 우회: 페이지네이션으로 전체 로드
+      let sbData = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: chunk, error: chunkErr } = await _sb
+          .from('sales_ledger')
+          .select('*')
+          .gte('sale_date', selectedYear + '-01-01')
+          .lte('sale_date', selectedYear + '-12-31')
+          .order('sale_date', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (chunkErr || !chunk || chunk.length === 0) break;
+        sbData = sbData.concat(chunk);
+        if (chunk.length < PAGE) break;
+        from += PAGE;
+      }
       if (sbData) {
         const newRows = sbData.map(r => ({
           id:       r.id,
