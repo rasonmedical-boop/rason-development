@@ -1957,7 +1957,8 @@ async function syncAllFromSupabase() {
       .order('sale_date', { ascending: false });
 
     if (sbLedger && sbLedger.length > 0) {
-      const sbLedgerMapped = sbLedger.map(r => ({
+      // Supabase를 단일 진실 소스로 사용 — 중복 방지
+      const ledger = sbLedger.map(r => ({
         id:       r.id,
         날짜:     r.sale_date,
         업체명:   r.short_name,
@@ -1974,65 +1975,11 @@ async function syncAllFromSupabase() {
         매칭상태: r.match_status || 'auto',
         isReturn: r.is_return  || false,
       }));
-
-      // localStorage에 Supabase보다 많은 데이터가 있으면 병합 (local 우선)
-      const localLedger = DB.get('salesLedger') || [];
-      const sbIds = new Set(sbLedgerMapped.map(r => r.id));
-      const localOnly = localLedger.filter(r => !sbIds.has(r.id));
-
-      // local에만 있는 데이터를 Supabase에도 저장 (누락분 보완)
-      if (localOnly.length > 0) {
-        const sbRows = localOnly.map(r => ({
-          short_name:   r.업체명,
-          sale_date:    r.날짜,
-          item_name:    r.품목 || '',
-          model_name:   r.모델명 || '',
-          spec:         r.규격 || '',
-          qty:          r.수량 || 0,
-          unit_price:   r.단가 || 0,
-          supply_amt:   r.공급가액 || 0,
-          tax_amt:      r.세액 || 0,
-          total_amt:    r.합계 || 0,
-          payment_amt:  r.결제금액 || 0,
-          memo:         r.비고 || '',
-          match_status: r.매칭상태 || 'auto',
-          is_return:    r.isReturn || false,
-        }));
-        const { error } = await _sb.from('sales_ledger').insert(sbRows);
-        if (error) console.warn('누락 매출 Supabase 보완 저장 실패:', error.message);
-        else console.log(`누락 매출 ${localOnly.length}건 Supabase 보완 저장 완료`);
-      }
-
-      const merged = [...sbLedgerMapped, ...localOnly];
-      DB.set('salesLedger', merged);
+      DB.set('salesLedger', ledger);
       const countEl = document.getElementById('hdr-record-count');
-      if (countEl) countEl.textContent = `DB ${merged.length}건`;
-    } else {
-      // Supabase가 비어있어도 localStorage 데이터는 유지
-      const localLedger = DB.get('salesLedger') || [];
-      if (localLedger.length > 0) {
-        // localStorage에 있는 데이터를 Supabase에 저장 (복구)
-        const sbRows = localLedger.map(r => ({
-          short_name:   r.업체명,
-          sale_date:    r.날짜,
-          item_name:    r.품목 || '',
-          model_name:   r.모델명 || '',
-          spec:         r.규격 || '',
-          qty:          r.수량 || 0,
-          unit_price:   r.단가 || 0,
-          supply_amt:   r.공급가액 || 0,
-          tax_amt:      r.세액 || 0,
-          total_amt:    r.합계 || 0,
-          payment_amt:  r.결제금액 || 0,
-          memo:         r.비고 || '',
-          match_status: r.매칭상태 || 'auto',
-          is_return:    r.isReturn || false,
-        }));
-        const { error } = await _sb.from('sales_ledger').insert(sbRows);
-        if (error) console.warn('localStorage 매출 Supabase 복구 실패:', error.message);
-        else console.log(`localStorage 매출 ${localLedger.length}건 Supabase 복구 완료`);
-      }
+      if (countEl) countEl.textContent = `DB ${ledger.length}건`;
     }
+    // Supabase가 비어있으면 localStorage 유지 (데이터 손실 방지)
 
     console.log('Supabase ↔ localStorage 동기화 완료');
   } catch(e) {
@@ -5533,26 +5480,58 @@ async function confirmUpload() {
   DB.set('salesLedger', ledger);
   document.getElementById('hdr-record-count').textContent = `DB ${ledger.length}건`;
 
-  // ── Supabase sales_ledger 저장 ────────────────────────────────
+  // ── Supabase sales_ledger 저장 (INSERT 후 실제 id로 localStorage 동기화) ──
   const sbRows = mergedRows.map(r => {
     const { supply, tax, total } = calcSales(r.수량, r.단가);
     return {
-      short_name:  r.업체명,
-      sale_date:   r.날짜,
-      item_name:   r.품목명 || r.품목 || '',
-      model_name:  r.모델명,
-      spec:        r.규격 || '',
-      qty:         r.수량,
-      unit_price:  r.단가,
-      supply_amt:  supply,
-      tax_amt:     tax,
-      total_amt:   total,
-      payment_amt: total,
-      memo:        r.비고 || '',
+      short_name:   r.업체명,
+      sale_date:    r.날짜,
+      item_name:    r.품목명 || r.품목 || '',
+      model_name:   r.모델명,
+      spec:         r.규격 || '',
+      qty:          r.수량,
+      unit_price:   r.단가,
+      supply_amt:   supply,
+      tax_amt:      tax,
+      total_amt:    total,
+      payment_amt:  total,
+      memo:         r.비고 || '',
+      match_status: r.매칭상태 || 'auto',
+      is_return:    false,
     };
   });
-  const { error: slErr } = await _sb.from('sales_ledger').insert(sbRows);
-  if (slErr) console.warn('sales_ledger Supabase 저장 실패:', slErr.message);
+  const { data: insertedRows, error: slErr } = await _sb
+    .from('sales_ledger').insert(sbRows).select();
+  if (slErr) {
+    console.warn('sales_ledger Supabase 저장 실패:', slErr.message);
+  } else if (insertedRows && insertedRows.length > 0) {
+    // Supabase가 발급한 id로 localStorage 재동기화 → 중복 방지
+    const freshLedger = (DB.get('salesLedger') || []).filter(r => {
+      // 방금 insert한 날짜+업체명+모델명 조합은 제거 후 Supabase 버전으로 교체
+      return !insertedRows.some(sb =>
+        sb.sale_date === r.날짜 && sb.short_name === r.업체명 && sb.model_name === r.모델명
+      );
+    });
+    const newRows = insertedRows.map(r => ({
+      id:       r.id,
+      날짜:     r.sale_date,
+      업체명:   r.short_name,
+      품목:     r.item_name  || '',
+      모델명:   r.model_name || '',
+      규격:     r.spec       || '',
+      수량:     r.qty        || 0,
+      단가:     r.unit_price || 0,
+      공급가액: r.supply_amt || 0,
+      세액:     r.tax_amt    || 0,
+      합계:     r.total_amt  || 0,
+      결제금액: r.payment_amt|| 0,
+      비고:     r.memo       || '',
+      매칭상태: r.match_status || 'auto',
+      isReturn: r.is_return  || false,
+    }));
+    DB.set('salesLedger', [...freshLedger, ...newRows]);
+    document.getElementById('hdr-record-count').textContent = `DB ${freshLedger.length + newRows.length}건`;
+  }
 
   // ── 발주 자동 완료 처리 ──────────────────────────────────────────
   await syncSbPosToLocal();
