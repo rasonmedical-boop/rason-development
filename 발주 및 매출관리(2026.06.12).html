@@ -484,6 +484,7 @@
     padding: 10px 16px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
+    white-space: nowrap;
   }
 
   /* 발주 현황 전용 — 모든 셀 줄바꿈 금지 */
@@ -1918,7 +1919,7 @@ async function syncAllFromSupabase() {
       .select('*, purchase_order_items(*)')
       .order('created_at', { ascending: false });
 
-    if (sbOrders) {
+    if (sbOrders && sbOrders.length > 0) {
       const allPos = sbOrders.map(o => ({
         id:       'sb_' + o.id,
         발주번호: o.po_number,
@@ -1942,7 +1943,11 @@ async function syncAllFromSupabase() {
           total:    i.total_amt,
         })),
       }));
-      DB.set('purchaseOrders', allPos);
+      // localStorage보다 Supabase가 적을 때는 병합 (local 우선)
+      const localPos = DB.get('purchaseOrders') || [];
+      const sbPoNums = new Set(allPos.map(p => p.발주번호));
+      const localOnly = localPos.filter(p => !sbPoNums.has(p.발주번호));
+      DB.set('purchaseOrders', [...allPos, ...localOnly]);
     }
 
     // 2. sales_ledger 동기화
@@ -1952,7 +1957,7 @@ async function syncAllFromSupabase() {
       .order('sale_date', { ascending: false });
 
     if (sbLedger && sbLedger.length > 0) {
-      const ledger = sbLedger.map(r => ({
+      const sbLedgerMapped = sbLedger.map(r => ({
         id:       r.id,
         날짜:     r.sale_date,
         업체명:   r.short_name,
@@ -1969,12 +1974,67 @@ async function syncAllFromSupabase() {
         매칭상태: r.match_status || 'auto',
         isReturn: r.is_return  || false,
       }));
-      DB.set('salesLedger', ledger);
+
+      // localStorage에 Supabase보다 많은 데이터가 있으면 병합 (local 우선)
+      const localLedger = DB.get('salesLedger') || [];
+      const sbIds = new Set(sbLedgerMapped.map(r => r.id));
+      const localOnly = localLedger.filter(r => !sbIds.has(r.id));
+
+      // local에만 있는 데이터를 Supabase에도 저장 (누락분 보완)
+      if (localOnly.length > 0) {
+        const sbRows = localOnly.map(r => ({
+          short_name:   r.업체명,
+          sale_date:    r.날짜,
+          item_name:    r.품목 || '',
+          model_name:   r.모델명 || '',
+          spec:         r.규격 || '',
+          qty:          r.수량 || 0,
+          unit_price:   r.단가 || 0,
+          supply_amt:   r.공급가액 || 0,
+          tax_amt:      r.세액 || 0,
+          total_amt:    r.합계 || 0,
+          payment_amt:  r.결제금액 || 0,
+          memo:         r.비고 || '',
+          match_status: r.매칭상태 || 'auto',
+          is_return:    r.isReturn || false,
+        }));
+        const { error } = await _sb.from('sales_ledger').insert(sbRows);
+        if (error) console.warn('누락 매출 Supabase 보완 저장 실패:', error.message);
+        else console.log(`누락 매출 ${localOnly.length}건 Supabase 보완 저장 완료`);
+      }
+
+      const merged = [...sbLedgerMapped, ...localOnly];
+      DB.set('salesLedger', merged);
       const countEl = document.getElementById('hdr-record-count');
-      if (countEl) countEl.textContent = `DB ${ledger.length}건`;
+      if (countEl) countEl.textContent = `DB ${merged.length}건`;
+    } else {
+      // Supabase가 비어있어도 localStorage 데이터는 유지
+      const localLedger = DB.get('salesLedger') || [];
+      if (localLedger.length > 0) {
+        // localStorage에 있는 데이터를 Supabase에 저장 (복구)
+        const sbRows = localLedger.map(r => ({
+          short_name:   r.업체명,
+          sale_date:    r.날짜,
+          item_name:    r.품목 || '',
+          model_name:   r.모델명 || '',
+          spec:         r.규격 || '',
+          qty:          r.수량 || 0,
+          unit_price:   r.단가 || 0,
+          supply_amt:   r.공급가액 || 0,
+          tax_amt:      r.세액 || 0,
+          total_amt:    r.합계 || 0,
+          payment_amt:  r.결제금액 || 0,
+          memo:         r.비고 || '',
+          match_status: r.매칭상태 || 'auto',
+          is_return:    r.isReturn || false,
+        }));
+        const { error } = await _sb.from('sales_ledger').insert(sbRows);
+        if (error) console.warn('localStorage 매출 Supabase 복구 실패:', error.message);
+        else console.log(`localStorage 매출 ${localLedger.length}건 Supabase 복구 완료`);
+      }
     }
 
-    console.log('Supabase → localStorage 동기화 완료');
+    console.log('Supabase ↔ localStorage 동기화 완료');
   } catch(e) {
     console.warn('syncAllFromSupabase 실패:', e);
   }
@@ -2587,7 +2647,7 @@ async function renderClients() {
       </td>
     </tr>`;
 
-    const mainRow = `<tr style="cursor:pointer" onclick="toggleClientDetail('${c.id}')">
+    const mainRow = `<tr style="cursor:pointer" onclick="openClientModal('${c.id}')">
       <td style="font-weight:600">${escHtml(c.corp_name)}</td>
       <td style="font-size:12px;color:var(--text2)">${escHtml(shortNames)}</td>
       <td>${statusBadge}</td>
@@ -2685,6 +2745,10 @@ function openClientModal(clientId = null) {
       </div>
     </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  // ESC 키로 닫기
+  setTimeout(() => {
+    document.addEventListener('keydown', _clientModalEsc);
+  }, 50);
 }
 
 
@@ -2860,6 +2924,11 @@ function toggleClientDetail(clientId) {
 
 function closeClientModal() {
   document.getElementById('client-modal-overlay')?.remove();
+  document.removeEventListener('keydown', _clientModalEsc);
+}
+
+function _clientModalEsc(e) {
+  if (e.key === 'Escape') closeClientModal();
 }
 
 async function saveClient(clientId) {
@@ -4215,6 +4284,7 @@ function openManualEntryModal(prefill) {
           <div style="position:relative">
             <input type="text" id="me-company" value="${p.업체명||''}" placeholder="업체명 입력 또는 선택"
               oninput="meCompanyInput()" onfocus="meCompanyInput()" autocomplete="off"
+              onkeydown="meDdKeydown(event,'me-company-dd')"
               style="width:100%">
             <div id="me-company-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
               background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);
@@ -4237,6 +4307,7 @@ function openManualEntryModal(prefill) {
           <div style="position:relative">
             <input type="text" id="me-model" value="${p.모델명||''}" placeholder="모델명 입력 또는 선택"
               oninput="meModelInput()" onfocus="meModelInput()" autocomplete="off"
+              onkeydown="meDdKeydown(event,'me-model-dd')"
               style="width:100%">
             <div id="me-model-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
               background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);
@@ -4330,14 +4401,49 @@ function meCompanyInput() {
   const dd = document.getElementById('me-company-dd');
   if (!dd) return;
   if (!filtered.length) { dd.style.display = 'none'; return; }
-  dd.innerHTML = filtered.slice(0,12).map(c =>
-    `<div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
-       onmousedown="meSelectCompany('${c.replace(/'/g,"\\'")}')">
+  dd.innerHTML = filtered.slice(0,12).map((c, i) =>
+    `<div data-idx="${i}" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+       onmousedown="meSelectCompany('${c.replace(/'/g,"\'")}')"
+       onmouseover="meDdHighlight(this,'me-company-dd')">
        ${c}
      </div>`).join('');
   dd.style.display = 'block';
 }
 
+/* 드롭다운 키보드 공통 헬퍼 */
+function meDdHighlight(el, ddId) {
+  const dd = document.getElementById(ddId);
+  if (!dd) return;
+  dd.querySelectorAll('[data-idx]').forEach(e => e.style.background = '');
+  el.style.background = 'var(--accent-bg)';
+}
+
+function meDdKeydown(e, ddId) {
+  const dd = document.getElementById(ddId);
+  if (!dd || dd.style.display === 'none') return;
+  const items = [...dd.querySelectorAll('[data-idx]')];
+  if (!items.length) return;
+  const cur = items.findIndex(el => el.style.background !== '');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = cur < items.length - 1 ? cur + 1 : 0;
+    items.forEach(el => el.style.background = '');
+    items[next].style.background = 'var(--accent-bg)';
+    items[next].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = cur > 0 ? cur - 1 : items.length - 1;
+    items.forEach(el => el.style.background = '');
+    items[prev].style.background = 'var(--accent-bg)';
+    items[prev].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const active = items.find(el => el.style.background !== '');
+    if (active) active.dispatchEvent(new MouseEvent('mousedown'));
+  } else if (e.key === 'Escape') {
+    dd.style.display = 'none';
+  }
+}
 function meSelectCompany(name) {
   const inp = document.getElementById('me-company');
   if (inp) inp.value = name;
@@ -4364,9 +4470,10 @@ function meModelInput() {
   if (!dd) return;
   if (!filtered.length) { dd.style.display = 'none'; return; }
 
-  dd.innerHTML = filtered.slice(0,15).map(m =>
+  dd.innerHTML = filtered.slice(0,15).map((m, i) =>
     `<div style="padding:8px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);
        display:flex;align-items:center;justify-content:space-between;gap:8px"
+       data-idx="${i}" onmouseover="meDdHighlight(this,'me-model-dd')"
        onmousedown="meSelectModel('${(m.모델명규격||'').replace(/'/g,"\\'")}','${(m.품목명||m.제품명||'').replace(/'/g,"\\'")}',${m.단가||0})">
        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.모델명규격||''}</span>
        <span style="font-size:11px;color:var(--text2);white-space:nowrap">${m.품목명||''}</span>
