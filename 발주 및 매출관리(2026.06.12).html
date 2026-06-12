@@ -4189,6 +4189,24 @@ function saveEditRow(id) {
     매칭상태: 'manual'
   };
   DB.set('salesLedger', ledger);
+  // Supabase 동기화
+  const editedRow = ledger[idx];
+  _sb.from('sales_ledger').update({
+    short_name:   editedRow.업체명,
+    sale_date:    editedRow.날짜,
+    item_name:    editedRow.품목 || '',
+    model_name:   editedRow.모델명 || '',
+    qty:          editedRow.수량 || 0,
+    unit_price:   editedRow.단가 || 0,
+    supply_amt:   editedRow.공급가액 || 0,
+    tax_amt:      editedRow.세액 || 0,
+    total_amt:    editedRow.합계 || 0,
+    payment_amt:  editedRow.결제금액 || 0,
+    memo:         editedRow.비고 || '',
+    match_status: 'manual',
+  }).eq('id', editedRow.id).then(({ error }) => {
+    if (error) console.warn('수정 Supabase 동기화 실패:', error.message);
+  });
   erCloseModal();
   renderSalesLedger();
   toast('수정되었습니다.', 'success');
@@ -4197,7 +4215,8 @@ function saveEditRow(id) {
 async function deleteRow(id) {
   if (!confirm('이 항목을 삭제하시겠습니까?')) return;
   // Supabase legacy_id 기준으로 삭제 시도
-  _sb.from('sales_ledger').delete().eq('legacy_id', id).then(({ error }) => {
+  // id 기준으로 Supabase 삭제 (legacy_id 또는 실제 id)
+  _sb.from('sales_ledger').delete().eq('id', id).then(({ error }) => {
     if (error) console.warn('sales_ledger Supabase 삭제 실패:', error.message);
   });
   const ledger = (DB.get('salesLedger')||[]).filter(r => r.id !== id);
@@ -4227,11 +4246,15 @@ function onRowCheckChange() {
   }
 }
 
-function deleteSelectedRows() {
+async function deleteSelectedRows() {
   const checks = [...document.querySelectorAll('.sl-row-check:checked')];
   if (!checks.length) return;
   const ids = checks.map(c => Number(c.dataset.id));
   if (!confirm(`선택한 ${ids.length}건을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  // Supabase 삭제
+  for (const id of ids) {
+    await _sb.from('sales_ledger').delete().eq('id', id);
+  }
   const ledger = (DB.get('salesLedger')||[]).filter(r => !ids.includes(r.id));
   DB.set('salesLedger', ledger);
   renderSalesLedger();
@@ -4272,6 +4295,15 @@ function deleteFilteredRows() {
   if (!confirm(`현재 필터에 해당하는 ${toDelete.length}건을 모두 삭제하시겠습니까?${condStr}\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) return;
   const remaining = ledger.filter(r => !toDelete.includes(r));
   DB.set('salesLedger', remaining);
+  // Supabase 삭제
+  const delIds = toDelete.map(r => r.id).filter(Boolean);
+  if (delIds.length > 0) {
+    for (const id of delIds) {
+      _sb.from('sales_ledger').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('필터 삭제 Supabase 실패:', error.message);
+      });
+    }
+  }
   renderSalesLedger();
   toast(`${toDelete.length}건이 삭제되었습니다.`, 'info');
 }
@@ -4538,7 +4570,7 @@ function meCalc() {
   document.getElementById('me-total').value  = total;
 }
 
-function saveManualEntry() {
+async function saveManualEntry() {
   const date    = document.getElementById('me-date')?.value || '';
   const company = (document.getElementById('me-company')?.value || '').trim();
   const model   = (document.getElementById('me-model')?.value || '').trim();
@@ -4577,6 +4609,30 @@ function saveManualEntry() {
     매칭상태: 'manual',
     isReturn: false,
   });
+  // Supabase 저장 후 실제 id로 교체
+  const { data: inserted, error: sbErr } = await _sb.from('sales_ledger').insert({
+    short_name:   company,
+    sale_date:    date,
+    item_name:    item || '',
+    model_name:   model || '',
+    spec:         '',
+    qty:          qty,
+    unit_price:   price,
+    supply_amt:   supply,
+    tax_amt:      tax,
+    total_amt:    total,
+    payment_amt:  total,
+    memo:         note || '',
+    match_status: 'manual',
+    is_return:    false,
+  }).select().single();
+  if (sbErr) {
+    console.warn('수기입력 Supabase 저장 실패:', sbErr.message);
+  } else if (inserted) {
+    // 방금 push한 항목의 id를 Supabase id로 교체
+    const last = ledger[ledger.length - 1];
+    if (last) last.id = inserted.id;
+  }
   DB.set('salesLedger', ledger);
   renderSalesLedger();
   document.getElementById('hdr-record-count').textContent = `DB ${ledger.length}건`;
@@ -5855,7 +5911,7 @@ function retCalc() {
   document.getElementById('ret-total').value  = total;
 }
 
-function submitReturn() {
+async function submitReturn() {
   const date    = document.getElementById('ret-date')?.value || '';
   const company = (document.getElementById('ret-company')?.value || '').trim();
   const model   = (document.getElementById('ret-model')?.value || '').trim();
@@ -5884,6 +5940,29 @@ function submitReturn() {
     공급가액: -supply, 세액: -tax, 합계: -total, 결제금액: -total,
     비고: note||'반품', 매칭상태: 'manual', isReturn: true,
   });
+  // Supabase 저장 후 실제 id로 교체
+  const { data: retInserted, error: retErr } = await _sb.from('sales_ledger').insert({
+    short_name:   company,
+    sale_date:    date,
+    item_name:    item || '반품',
+    model_name:   model || '',
+    spec:         '',
+    qty:          -qty,
+    unit_price:   price,
+    supply_amt:   -supply,
+    tax_amt:      -tax,
+    total_amt:    -total,
+    payment_amt:  -total,
+    memo:         note || '반품',
+    match_status: 'manual',
+    is_return:    true,
+  }).select().single();
+  if (retErr) {
+    console.warn('반품 Supabase 저장 실패:', retErr.message);
+  } else if (retInserted) {
+    const last = ledger[ledger.length - 1];
+    if (last) last.id = retInserted.id;
+  }
   DB.set('salesLedger', ledger);
   renderSalesLedger();
   document.getElementById('hdr-record-count').textContent = `DB ${ledger.length}건`;
@@ -6929,7 +7008,7 @@ function previewMerge() {
   document.getElementById('btn-do-merge')._toAdd = toAdd;
 }
 
-function confirmMerge() {
+async function confirmMerge() {
   const toAdd = document.getElementById('btn-do-merge')._toAdd;
   if (!toAdd || !toAdd.length) { toast('통합할 데이터가 없습니다.', 'warn'); return; }
 
@@ -6937,35 +7016,97 @@ function confirmMerge() {
   const yrLabel = yr === '전체' ? '전체 연도' : yr + '년';
   if (!confirm(`${yrLabel} 데이터 ${toAdd.length.toLocaleString()}건을 매출장으로 통합하시겠습니까?\n엑셀 데이터를 그대로 전량 추가합니다.`)) return;
 
+  toast('통합 중...', 'info');
+
   // 통합할 연도 목록 추출
   const mergeYears = new Set(toAdd.map(r => r.날짜?.slice(0,4)).filter(Boolean));
 
-  // salesLedger에서 통합 대상 연도의 isLegacy 데이터(과거 통합분)만 제거 (중복 방지)
+  // 1. Supabase에서 해당 연도 isLegacy 데이터 먼저 삭제 (중복 방지)
+  for (const y of mergeYears) {
+    await _sb.from('sales_ledger')
+      .delete()
+      .gte('sale_date', y + '-01-01')
+      .lte('sale_date', y + '-12-31')
+      .eq('match_status', 'legacy');
+  }
+
+  // 2. Supabase에 일괄 INSERT (500건씩 배치)
+  const sbRows = toAdd.map(r => ({
+    short_name:   r.업체명,
+    sale_date:    r.날짜,
+    item_name:    r.품목 || '',
+    model_name:   r.모델명 || '',
+    spec:         r.규격 || '',
+    qty:          r.수량 || 0,
+    unit_price:   r.단가 || 0,
+    supply_amt:   r.공급가액 || 0,
+    tax_amt:      r.세액 || 0,
+    total_amt:    r.합계 || 0,
+    payment_amt:  r.결제금액 || r.합계 || 0,
+    memo:         r.비고 || '',
+    match_status: r.매칭상태 || 'legacy',
+    is_return:    r.isReturn || false,
+  }));
+
+  let insertedAll = [];
+  const BATCH = 500;
+  for (let i = 0; i < sbRows.length; i += BATCH) {
+    const { data: inserted, error } = await _sb
+      .from('sales_ledger')
+      .insert(sbRows.slice(i, i + BATCH))
+      .select();
+    if (error) { console.warn('통합 Supabase 저장 실패:', error.message); }
+    if (inserted) insertedAll = insertedAll.concat(inserted);
+  }
+
+  // 3. localStorage 업데이트 (Supabase id로)
   const existing = (DB.get('salesLedger') || []).filter(r => {
     const ry = r.날짜?.slice(0,4);
     if (ry && mergeYears.has(ry) && r.isLegacy) return false;
     return true;
   });
-  let maxId = existing.reduce((m, r) => Math.max(m, r.id||0), _ledgerIdCounter);
+  const newRows = insertedAll.map(r => ({
+    id:       r.id,
+    날짜:     r.sale_date,
+    업체명:   r.short_name,
+    품목:     r.item_name  || '',
+    모델명:   r.model_name || '',
+    규격:     r.spec       || '',
+    수량:     r.qty        || 0,
+    단가:     r.unit_price || 0,
+    공급가액: r.supply_amt || 0,
+    세액:     r.tax_amt    || 0,
+    합계:     r.total_amt  || 0,
+    결제금액: r.payment_amt|| 0,
+    비고:     r.memo       || '',
+    매칭상태: r.match_status || 'legacy',
+    isLegacy: true,
+    isReturn: r.is_return  || false,
+  }));
+  DB.set('salesLedger', [...existing, ...newRows]);
+  _ledgerIdCounter = [...existing, ...newRows].reduce((m,r) => Math.max(m, r.id||0), 0);
 
-  for (const r of toAdd) {
-    const entry = { ...r, id: ++maxId, isLegacy: true, 매칭상태: r.매칭상태 || 'legacy' };
-    existing.push(entry);
+  // 4. 연도 목록 캐시 업데이트
+  const years = [...mergeYears].sort().reverse();
+  const existingYears = DB.get('salesLedgerYears') || [];
+  const mergedYears = [...new Set([...existingYears, ...years])].sort().reverse();
+  DB.set('salesLedgerYears', mergedYears);
+  const yearSel = document.getElementById('sl-year');
+  if (yearSel) {
+    yearSel.innerHTML = '<option value="">전체 연도</option>' +
+      mergedYears.map(y => `<option value="${y}">${y}년</option>`).join('');
   }
-  _ledgerIdCounter = maxId;
-  DB.set('salesLedger', existing);
 
-  const years = [...new Set(toAdd.map(r => r.날짜?.slice(0,4)).filter(Boolean))].sort().join(', ');
+  const yearsLabel = years.join(', ');
   const sumSupply = toAdd.reduce((a,r) => a+(r.공급가액||0), 0);
   document.getElementById('merge-result-card').style.display = '';
   document.getElementById('merge-result-log').innerHTML =
-    `✅ <b>${toAdd.length.toLocaleString()}건</b> 통합 완료 (${years}년) &nbsp;|&nbsp; 공급가액 합계: <b>${fmt(sumSupply)}</b><br>
+    `✅ <b>${toAdd.length.toLocaleString()}건</b> 통합 완료 (${yearsLabel}년) &nbsp;|&nbsp; 공급가액 합계: <b>${fmt(sumSupply)}</b><br>
      📋 매출장에서 연도 필터로 과거 데이터를 확인하세요.`;
 
-  document.getElementById('hdr-record-count').textContent = `DB ${existing.length}건`;
+  document.getElementById('hdr-record-count').textContent = `DB ${(DB.get('salesLedger')||[]).length}건`;
   document.getElementById('btn-do-merge').style.display = 'none';
   document.getElementById('merge-preview-wrap').style.display = 'none';
-  // 통합된 매출 데이터로 발주 현황 자동 연동 재계산 (triggerDate 빈 문자열 = 180일 필터 비활성화)
   tryAutoCompletePo('');
   renderDashboard();
   toast(`통합 완료: ${toAdd.length.toLocaleString()}건이 매출장에 추가됐습니다.`, 'success');
