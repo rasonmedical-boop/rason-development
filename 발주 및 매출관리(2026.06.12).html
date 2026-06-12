@@ -3722,46 +3722,41 @@ async function renderSalesLedger() {
     yearSel.value = prevYear;
   }
 
-  // 선택된 연도의 데이터가 localStorage에 없으면 Supabase에서 로드
+  // 선택된 연도 데이터를 Supabase에서 항상 새로 로드 (localStorage는 1개 연도만 유지)
   const selectedYear = yearSel.value;
   if (selectedYear) {
-    const localLedger = DB.get('salesLedger') || [];
-    const hasYear = localLedger.some(r => r.날짜?.startsWith(selectedYear));
-    if (!hasYear) {
-      const wrap = document.getElementById('sl-table');
-      if (wrap) wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">로딩 중...</div>';
-      try {
-        const { data: sbData } = await _sb
-          .from('sales_ledger')
-          .select('*')
-          .gte('sale_date', selectedYear + '-01-01')
-          .lte('sale_date', selectedYear + '-12-31')
-          .order('sale_date', { ascending: false });
-        if (sbData && sbData.length > 0) {
-          const newRows = sbData.map(r => ({
-            id:       r.id,
-            날짜:     r.sale_date,
-            업체명:   r.short_name,
-            품목:     r.item_name  || '',
-            모델명:   r.model_name || '',
-            규격:     r.spec       || '',
-            수량:     r.qty        || 0,
-            단가:     r.unit_price || 0,
-            공급가액: r.supply_amt || 0,
-            세액:     r.tax_amt    || 0,
-            합계:     r.total_amt  || 0,
-            결제금액: r.payment_amt|| 0,
-            비고:     r.memo       || '',
-            매칭상태: r.match_status || 'auto',
-            isReturn: r.is_return  || false,
-          }));
-          // 기존 localStorage에 해당 연도 외 데이터 유지 + 새 연도 추가
-          const otherRows = localLedger.filter(r => !r.날짜?.startsWith(selectedYear));
-          DB.set('salesLedger', [...otherRows, ...newRows]);
-        }
-      } catch(e) {
-        console.warn('sales_ledger 연도 로드 실패:', e);
+    const wrap = document.getElementById('sl-table');
+    if (wrap) wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">로딩 중...</div>';
+    try {
+      const { data: sbData } = await _sb
+        .from('sales_ledger')
+        .select('*')
+        .gte('sale_date', selectedYear + '-01-01')
+        .lte('sale_date', selectedYear + '-12-31')
+        .order('sale_date', { ascending: false });
+      if (sbData) {
+        const newRows = sbData.map(r => ({
+          id:       r.id,
+          날짜:     r.sale_date,
+          업체명:   r.short_name,
+          품목:     r.item_name  || '',
+          모델명:   r.model_name || '',
+          규격:     r.spec       || '',
+          수량:     r.qty        || 0,
+          단가:     r.unit_price || 0,
+          공급가액: r.supply_amt || 0,
+          세액:     r.tax_amt    || 0,
+          합계:     r.total_amt  || 0,
+          결제금액: r.payment_amt|| 0,
+          비고:     r.memo       || '',
+          매칭상태: r.match_status || 'auto',
+          isReturn: r.is_return  || false,
+        }));
+        // 선택된 연도 데이터만 localStorage에 유지 (다른 연도 데이터 제거 → 혼입 방지)
+        DB.set('salesLedger', newRows);
       }
+    } catch(e) {
+      console.warn('sales_ledger 연도 로드 실패:', e);
     }
   }
 
@@ -5651,8 +5646,9 @@ async function confirmUpload() {
       매칭상태: r.match_status || 'auto',
       isReturn: r.is_return  || false,
     }));
-    DB.set('salesLedger', [...freshLedger, ...newRows]);
-    document.getElementById('hdr-record-count').textContent = `DB ${freshLedger.length + newRows.length}건`;
+    // 해당 연도 데이터만 localStorage에 유지 (다른 연도 혼입 방지)
+    DB.set('salesLedger', newRows);
+    document.getElementById('hdr-record-count').textContent = `DB ${newRows.length}건`;
   }
 
   // ── 발주 자동 완료 처리 ──────────────────────────────────────────
