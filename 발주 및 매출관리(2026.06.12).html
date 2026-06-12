@@ -1950,39 +1950,22 @@ async function syncAllFromSupabase() {
       DB.set('purchaseOrders', [...allPos, ...localOnly]);
     }
 
-    // 2. sales_ledger: 연도 목록만 조회 (전체 데이터는 연도 선택 시 로드)
-    const { data: yearRows } = await _sb
-      .rpc('get_sales_years')
-      .throwOnError()
-      .catch(() => ({ data: null }));
+    // 2. sales_ledger: RPC로 연도 목록만 조회 (전체 데이터는 연도 선택 시 로드)
+    const { data: yearRows, error: yrErr } = await _sb.rpc('get_sales_years');
 
-    // RPC 없으면 직접 쿼리로 연도 목록 조회
     let availableYears = [];
-    if (yearRows) {
-      availableYears = yearRows.map(r => String(r.year)).filter(Boolean).sort().reverse();
-    } else {
-      const { data: yrData } = await _sb
-        .from('sales_ledger')
-        .select('sale_date')
-        .order('sale_date', { ascending: false })
-        .limit(1);
-      if (yrData && yrData.length > 0) {
-        // 최신 1건으로 현재 연도 파악 후 연도 옵션 구성
-        const latestYear = parseInt(yrData[0].sale_date.slice(0, 4));
-        for (let y = latestYear; y >= latestYear - 5; y--) availableYears.push(String(y));
-      }
+    if (!yrErr && yearRows && yearRows.length > 0) {
+      availableYears = yearRows.map(r => String(Math.floor(r.year))).filter(Boolean).sort().reverse();
     }
 
     if (availableYears.length > 0) {
-      // localStorage에는 연도 목록만 저장 (실제 데이터는 연도 선택 시 로드)
       DB.set('salesLedgerYears', availableYears);
-      // 연도 드롭다운 업데이트
       const yearSel = document.getElementById('sl-year');
       if (yearSel) {
         const curVal = yearSel.value;
         yearSel.innerHTML = '<option value="">전체 연도</option>' +
           availableYears.map(y => `<option value="${y}">${y}년</option>`).join('');
-        if (curVal) yearSel.value = curVal;
+        if (curVal && availableYears.includes(curVal)) yearSel.value = curVal;
       }
     }
 
