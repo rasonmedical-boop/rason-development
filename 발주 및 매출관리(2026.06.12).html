@@ -148,6 +148,70 @@
     box-shadow: 0 1px 0 var(--border), 0 4px 16px rgba(0,0,0,0.08);
   }
 
+  /* 라이트모드 모달/팝업 */
+  body.light-mode .modal-box,
+  body.light-mode [style*="background:var(--surface2)"],
+  body.light-mode [style*="background: var(--surface2)"] {
+    color: var(--text);
+  }
+
+  /* 라이트모드 입력창 */
+  body.light-mode input,
+  body.light-mode select,
+  body.light-mode textarea {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+
+  /* 라이트모드 테이블 헤더 */
+  body.light-mode th {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+
+  /* 라이트모드 테이블 행 hover */
+  body.light-mode tbody tr:hover td {
+    background: var(--surface2) !important;
+  }
+
+  /* 라이트모드 사이드바 */
+  body.light-mode .sidebar {
+    background: var(--surface);
+    border-right-color: var(--border);
+  }
+
+  /* 라이트모드 nav 텍스트 */
+  body.light-mode .nav-section {
+    color: var(--text3);
+  }
+
+  /* 라이트모드 카드 */
+  body.light-mode .card {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  /* 라이트모드 토스트 */
+  body.light-mode .toast-item {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+  }
+
+  /* 라이트모드 드롭다운 */
+  body.light-mode .combo-dropdown,
+  body.light-mode .po-combo-list {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+  }
+
+  /* 라이트모드 스크롤바 */
+  body.light-mode ::-webkit-scrollbar-track { background: var(--surface2); }
+  body.light-mode ::-webkit-scrollbar-thumb { background: var(--border2); }
+
   .badge-db {
     background: var(--accent-bg);
     border: 1px solid rgba(0,210,200,0.25);
@@ -316,7 +380,7 @@
 
   .stat-label {
     font-size: 14px;
-    color: #ffffff;
+    color: var(--text);
     margin-bottom: 8px;
     font-weight: 600;
     letter-spacing: -0.2px;
@@ -327,7 +391,7 @@
     font-weight: 700;
     font-family: 'Malgun Gothic', sans-serif;
     line-height: 1;
-    color: #ffffff;
+    color: var(--text);
   }
 
   /* stat-value.blue/green/orange/red — 기본 color(#fff) 동일, 유지 불필요 */
@@ -405,7 +469,7 @@
 
   th {
     background: var(--surface2);
-    color: #ffffff;
+    color: var(--text);
     padding: 12px 16px;
     text-align: left;
     font-weight: 700;
@@ -418,7 +482,7 @@
 
   td {
     padding: 10px 16px;
-    border-bottom: 1px solid rgba(26,36,53,0.7);
+    border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
 
@@ -444,7 +508,7 @@
   }
 
   /* zebra stripe — ultra-subtle */
-  tbody tr:nth-child(even) td { background: rgba(17,24,39,0.4); }
+  tbody tr:nth-child(even) td { background: var(--surface2); }
   tbody tr:nth-child(even):hover td { background: rgba(0,210,200,0.045); }
 
   .td-num { font-family: 'Malgun Gothic', sans-serif; text-align: right; }
@@ -670,7 +734,7 @@
 
   /* ── 컬럼 구분선 ───────────────────────────────── */
   th:not(:last-child) { border-right: 1px solid var(--border); }
-  td:not(:last-child) { border-right: 1px solid rgba(26,36,53,0.6); }
+  td:not(:last-child) { border-right: 1px solid var(--border); }
 
   /* ── 페이지 숨김 ───────────────────────────────── */
   .page { display: none; }
@@ -693,8 +757,9 @@
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:99999;display:flex;align-items:center;justify-content:center">
   <div style="width:380px;max-width:95vw">
     <div style="text-align:center;margin-bottom:32px">
-      <div style="font-size:36px;margin-bottom:10px">📊</div>
-      <div style="font-size:20px;font-weight:700;color:var(--text)">레이슨(주)</div>
+      <div style="margin-bottom:14px">
+        <img src="data:image/png;base64,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9gK21F7G6cfDEqoy8mm0ejqKnk546Omjd5tjGVOUVoihIc/vkdPJS2AmF7K6cvLPI0xifloAGAF+JomSsLHtBB8CvVFi2ZNEFVWGKTIbgtPyXDIUPLomgfIXOoKQk9T2YW64RZo5E4+GYnRB/Bq9BpenpQBDDFCP8DAFOUVBDTbsb3vMrMRQlbKXlko1Rj4PmFHXS2MrHh5OHDb3hSSKMZOL2iUoqS0zXW6apQ7nbDC13zhGMqWt1E2kYQ0kk9SsxFKVspLTIxqjF7RH3K3srMEnDgo38G6Vr+cQwh3n2YytiRFZJdkHVFvbMK10TKRh5SST1KzURQbbe2TSSWkERF4ehERAEREAKwq09VmrxmgEinBpPuYMiDnHSNcrHdVBV7uq3Oa1tk+UsKfTkUucyOCsKsmuPk5XN4nJt30ormvf1UNUElytGbRlNJ1mesR+gKRxz28isa+RpS8nK5P0pyE5bUV/yYXCQ96r97VYwUDpjT0Fj7QxSOeZMZz4KeHRUuZbG21yj4PoHAYVmFhRpt8rf/oREWqXYREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBETfyQBERAEREAREQBERAEREAREQBMIiAYREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREB/9k=" alt="Rason 로고" style="height:52px;width:auto;display:block;margin:0 auto;filter:drop-shadow(0 4px 12px rgba(0,153,160,0.35)) drop-shadow(0 2px 4px rgba(0,0,0,0.2))">
+      </div>
       <div style="font-size:13px;color:var(--text2);margin-top:4px">매출관리 · 발주 포털</div>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px">
@@ -726,7 +791,9 @@
 <div id="client-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;overflow-y:auto">
   <!-- 거래처 헤더 -->
   <header style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10">
-    <div style="font-size:18px">📦</div>
+    <div style="flex-shrink:0">
+      <img src="data:image/png;base64,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9gK21F7G6cfDEqoy8mm0ejqKnk546Omjd5tjGVOUVoihIc/vkdPJS2AmF7K6cvLPI0xifloAGAF+JomSsLHtBB8CvVFi2ZNEFVWGKTIbgtPyXDIUPLomgfIXOoKQk9T2YW64RZo5E4+GYnRB/Bq9BpenpQBDDFCP8DAFOUVBDTbsb3vMrMRQlbKXlko1Rj4PmFHXS2MrHh5OHDb3hSSKMZOL2iUoqS0zXW6apQ7nbDC13zhGMqWt1E2kYQ0kk9SsxFKVspLTIxqjF7RH3K3srMEnDgo38G6Vr+cQwh3n2YytiRFZJdkHVFvbMK10TKRh5SST1KzURQbbe2TSSWkERF4ehERAEREAKwq09VmrxmgEinBpPuYMiDnHSNcrHdVBV7uq3Oa1tk+UsKfTkUucyOCsKsmuPk5XN4nJt30ormvf1UNUElytGbRlNJ1mesR+gKRxz28isa+RpS8nK5P0pyE5bUV/yYXCQ96r97VYwUDpjT0Fj7QxSOeZMZz4KeHRUuZbG21yj4PoHAYVmFhRpt8rf/oREWqXYREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBETfyQBERAEREAREQBERAEREAREQBMIiAYREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREB/9k=" alt="Rason 로고" style="height:30px;width:auto;display:block;filter:drop-shadow(0 2px 6px rgba(0,153,160,0.3)) drop-shadow(0 1px 3px rgba(0,0,0,0.15))">
+    </div>
     <div>
       <div style="font-size:14px;font-weight:700;color:var(--text)" id="client-header-name">발주 포털</div>
       <div style="font-size:11px;color:var(--text2)" id="client-header-corp"></div>
@@ -3334,15 +3401,15 @@ function renderDashboard() {
   const breakdown = (supply, tax, total) => `
     <div style="display:flex;gap:0;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
       <div style="flex:1">
-        <div style="font-size:12px;color:#ffffff;font-weight:600;margin-bottom:3px">공급가액</div>
+        <div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:3px">공급가액</div>
         <div style="font-size:12px;font-weight:600;color:var(--warn);font-family:'Malgun Gothic',sans-serif">${fmt(supply)}</div>
       </div>
       <div style="flex:1">
-        <div style="font-size:12px;color:#ffffff;font-weight:600;margin-bottom:3px">세액</div>
+        <div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:3px">세액</div>
         <div style="font-size:12px;font-weight:600;color:var(--text2);font-family:'Malgun Gothic',sans-serif">${fmt(tax)}</div>
       </div>
       <div style="flex:1">
-        <div style="font-size:12px;color:#ffffff;font-weight:600;margin-bottom:3px">합계</div>
+        <div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:3px">합계</div>
         <div style="font-size:12px;font-weight:700;color:var(--success);font-family:'Malgun Gothic',sans-serif">${fmt(total)}</div>
       </div>
     </div>`;
@@ -3373,17 +3440,17 @@ function renderDashboard() {
       </div>
       <div style="display:flex;gap:0;align-items:stretch">
         <div style="flex:1;padding-right:20px">
-          <div style="font-size:12px;color:#ffffff;font-weight:600;margin-bottom:4px">공급가액</div>
+          <div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:4px">공급가액</div>
           <div style="font-size:20px;font-weight:700;color:var(--warn);font-family:'Malgun Gothic',sans-serif">${fmt(ySupply)}</div>
         </div>
         <div style="width:1px;background:var(--border);margin:0 20px"></div>
         <div style="flex:1;padding-right:20px">
-          <div style="font-size:12px;color:#ffffff;font-weight:600;margin-bottom:4px">세액</div>
+          <div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:4px">세액</div>
           <div style="font-size:20px;font-weight:700;color:var(--text);font-family:'Malgun Gothic',sans-serif">${fmt(yTax)}</div>
         </div>
         <div style="width:1px;background:var(--border);margin:0 20px"></div>
         <div style="flex:1.5">
-          <div style="font-size:12px;color:#ffffff;font-weight:700;margin-bottom:4px">합계</div>
+          <div style="font-size:12px;color:var(--text);font-weight:700;margin-bottom:4px">합계</div>
           <div style="font-size:26px;font-weight:700;color:var(--success);font-family:'Malgun Gothic',sans-serif">${fmt(yTotal)}</div>
         </div>
       </div>
@@ -4686,7 +4753,7 @@ function renderMonthly() {
       periodTotals[p].supply+=supply;
       periodTotals[p].tax+=tax;
       periodTotals[p].total+=total;
-      return `<td style="text-align:right;padding:8px 12px;border-bottom:1px solid rgba(46,50,72,0.4);font-family:'Malgun Gothic',sans-serif">
+      return `<td style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);font-family:'Malgun Gothic',sans-serif">
         ${total ? `<div style="font-size:12px;font-weight:600">${fmt(supply)}</div><div style="font-size:10px;color:var(--text3)">(합계 ${fmt(total)})</div>` : '<span style="color:var(--text3)">-</span>'}
       </td>`;
     });
@@ -4702,7 +4769,7 @@ function renderMonthly() {
         <div style="font-size:10px;color:var(--text3);margin-top:1px">${share}%</div>
       </td>
       ${cells.join('')}
-      <td style="text-align:right;padding:8px 12px;border-bottom:1px solid rgba(46,50,72,0.4);background:rgba(79,124,255,0.04);font-family:'Malgun Gothic',sans-serif">
+      <td style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(79,124,255,0.04);font-family:'Malgun Gothic',sans-serif">
         <div style="font-size:12px;font-weight:700;color:var(--warn)">${fmt(rowSupply)}</div>
         <div style="font-size:10px;color:var(--text3)">(합계 ${fmt(rowTotal)})</div>
       </td>
@@ -4976,7 +5043,7 @@ function renderItemSales() {
       : (grandTotal.qty    > 0 ? (rowQty    / grandTotal.qty    * 100).toFixed(1) : 0);
 
     html += `<tr style="background:${color}12">
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(46,50,72,0.4);position:sticky;left:0;background:#0f1923;z-index:1;min-width:160px;max-width:160px;width:160px">
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(46,50,72,0.4);position:sticky;left:0;background:var(--surface);z-index:1;min-width:160px;max-width:160px;width:160px">
         <div style="display:flex;align-items:center;gap:7px">
           <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
           <span style="font-weight:500;font-size:12px;white-space:nowrap">${item}</span>
@@ -4987,7 +5054,7 @@ function renderItemSales() {
         <div style="font-size:10px;color:var(--text3);margin-top:1px">${share}%</div>
       </td>
       ${cells.join('')}
-      <td style="text-align:right;padding:8px 12px;border-bottom:1px solid rgba(46,50,72,0.4);background:${color}18;font-family:'Malgun Gothic', sans-serif">${rowTotal}</td>
+      <td style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);background:${color}18;font-family:'Malgun Gothic', sans-serif">${rowTotal}</td>
     </tr>`;
   });
 
@@ -7850,7 +7917,7 @@ async function renderPoStatus() {
                     ? p.품목목록.slice(0,2).map(x => x.itemName || x.model).join(', ') +
                       (p.품목목록.length > 2 ? ` 외 ${p.품목목록.length - 2}건` : '')
                     : '-';
-                  return `<tr style="cursor:pointer;border-bottom:1px solid rgba(26,36,53,0.5)"
+                  return `<tr style="cursor:pointer;border-bottom:1px solid var(--border)"
                               onclick="poOpenDetail('${p.id}')"
                               onmouseover="this.style.background='rgba(0,210,200,0.035)'"
                               onmouseout="this.style.background=''">
@@ -8068,7 +8135,7 @@ async function renderPoStatus() {
           }
           return `<tr style="${rowStyle}cursor:pointer" title="클릭하여 발주 상세 보기" onclick="poOpenDetail('${p.id}')">
             <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);overflow:hidden;text-overflow:ellipsis">${p.발주번호}</td>
-            <td style="text-align:center;font-size:11px;color:#ffffff;font-weight:500">${p.발주일}</td>
+            <td style="text-align:center;font-size:11px;color:var(--text);font-weight:500">${p.발주일}</td>
             <td style="text-align:center;font-size:11px;font-weight:600;color:${!isDone&&left<0?'var(--danger)':'var(--success)'}">${p.납기일}</td>
             <td style="text-align:center">${ddayHtml}</td>
             <td style="text-align:center;font-size:11px;color:${p.출고일?'var(--accent)':'var(--text3)'}">${p.출고일||'—'}</td>
@@ -8242,7 +8309,7 @@ function poOpenDetail(id) {
             <tr>
               <td style="color:var(--text3);white-space:nowrap">${i+1}</td>
               <td style="white-space:nowrap">${x.itemName||x.model}</td>
-              <td style="font-size:11px;color:#ffffff;font-family:'IBM Plex Mono',monospace;white-space:nowrap">${x.model}</td>
+              <td style="font-size:11px;color:var(--text);font-family:'IBM Plex Mono',monospace;white-space:nowrap">${x.model}</td>
               <td class="td-num" style="white-space:nowrap">${(x.qty||0).toLocaleString()}</td>
               <td class="td-num" style="white-space:nowrap">${(x.price||0).toLocaleString()}</td>
               <td class="td-num" style="white-space:nowrap">${(x.supply||0).toLocaleString()}</td>
@@ -8313,7 +8380,7 @@ function poOpenDetail(id) {
             </tr></thead>
             <tbody>${delivered.map(x=>`<tr>
               <td style="padding:4px 8px;color:var(--text);border-bottom:1px solid rgba(16,185,129,0.1);white-space:nowrap">${x.name}</td>
-              <td style="padding:4px 8px;color:#ffffff;font-family:'IBM Plex Mono',monospace;font-size:11px;border-bottom:1px solid rgba(16,185,129,0.1);white-space:nowrap">${x.model}</td>
+              <td style="padding:4px 8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;border-bottom:1px solid rgba(16,185,129,0.1);white-space:nowrap">${x.model}</td>
               <td style="padding:4px 8px;text-align:right;font-family:'Malgun Gothic',sans-serif;color:var(--text2);border-bottom:1px solid rgba(16,185,129,0.1)">${x.ordered.toLocaleString()}</td>
               <td style="padding:4px 8px;text-align:right;font-family:'Malgun Gothic',sans-serif;font-weight:700;color:var(--success);border-bottom:1px solid rgba(16,185,129,0.1)">${x.shipped.toLocaleString()}</td>
             </tr>`).join('')}</tbody>
@@ -8332,7 +8399,7 @@ function poOpenDetail(id) {
             </tr></thead>
             <tbody>${undelivered.map(x=>`<tr>
               <td style="padding:4px 8px;color:var(--text);border-bottom:1px solid rgba(244,63,94,0.1);white-space:nowrap">${x.name}</td>
-              <td style="padding:4px 8px;color:#ffffff;font-family:'IBM Plex Mono',monospace;font-size:11px;border-bottom:1px solid rgba(244,63,94,0.1);white-space:nowrap">${x.model}</td>
+              <td style="padding:4px 8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;border-bottom:1px solid rgba(244,63,94,0.1);white-space:nowrap">${x.model}</td>
               <td style="padding:4px 8px;text-align:right;font-family:'Malgun Gothic',sans-serif;color:var(--text2);border-bottom:1px solid rgba(244,63,94,0.1)">${x.ordered.toLocaleString()}</td>
               <td style="padding:4px 8px;text-align:right;font-family:'Malgun Gothic',sans-serif;color:var(--text2);border-bottom:1px solid rgba(244,63,94,0.1)">${x.shipped.toLocaleString()}</td>
               <td style="padding:4px 8px;text-align:right;font-family:'Malgun Gothic',sans-serif;font-weight:700;color:var(--danger);border-bottom:1px solid rgba(244,63,94,0.1)">${x.remain.toLocaleString()}</td>
@@ -9106,11 +9173,11 @@ function renderOcrResult(r, fileName) {
       </div>
       <div style="padding:8px 10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
         <div style="font-size:9px;color:var(--text3);margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">발주일</div>
-        <div style="font-weight:600;font-size:12px;color:#ffffff">${r.orderDate || '미인식'}</div>
+        <div style="font-weight:600;font-size:12px;color:var(--text)">${r.orderDate || '미인식'}</div>
       </div>
       <div style="padding:8px 10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
         <div style="font-size:9px;color:var(--text3);margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">납기일</div>
-        <div style="font-weight:600;font-size:12px;color:#ffffff">${r.deliveryDate || '미인식'}</div>
+        <div style="font-weight:600;font-size:12px;color:var(--text)">${r.deliveryDate || '미인식'}</div>
       </div>
     </div>
     <!-- 품목 테이블 -->
@@ -9132,7 +9199,7 @@ function renderOcrResult(r, fileName) {
             else rowBg = 'background:rgba(244,63,94,0.05)';
             return `<tr style="${rowBg}">
               <td style="color:var(--text3);text-align:center;font-size:11px">${i+1}</td>
-              <td style="font-size:11px;color:#ffffff;font-family:'IBM Plex Mono',monospace">${item.rawText || ''}</td>
+              <td style="font-size:11px;color:var(--text);font-family:'IBM Plex Mono',monospace">${item.rawText || ''}</td>
               <td style="font-weight:600;font-size:12px;color:${conf>=90?'var(--success)':conf>=65?'var(--warn)':'var(--danger)'}">${item.matchedModel || '<span style="color:var(--text3)">매칭 실패</span>'}</td>
               <td style="text-align:center">${confidenceBadge(conf)}</td>
               <td class="td-num" style="font-family:'IBM Plex Mono',monospace;font-weight:600">${item.qty}</td>
